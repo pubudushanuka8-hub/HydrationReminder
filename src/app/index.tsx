@@ -1,98 +1,91 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
+import { useEffect, useState } from 'react';
+import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function ReminderTab() {
+  const [isReminding, setIsReminding] = useState(false);
+  const [message, setMessage] = useState("Time to drink a glass of water!");
+  const [intervalMinutes, setIntervalMinutes] = useState(1);
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
+  // Request notification permissions on mount
+  useEffect(() => {
+    async function requestPermissions() {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission required',
+          'We need notifications to remind you to drink water!'
+        );
+      }
+    }
+    requestPermissions();
+  }, []);
+
+  // Schedule a notification
+  async function scheduleReminder() {
+    await Notifications.requestPermissionsAsync(); // Safe check just in case
+    await Notifications.cancelAllScheduledNotificationsAsync(); // Clear old ones first
+
+    // Schedule the new notification
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Hydration Alert 💧",
+        body: message, 
+        sound: true, 
+      },
+      // Trigger the notification after the specified interval
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: intervalMinutes * 60, // Convert minutes to seconds
+        repeats: true
+      },
+    });
+
+    setIsReminding(true);
+    Alert.alert("Set!", `Reminding you every ${intervalMinutes} minutes.`); 
   }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
+
+  // Stop reminders
+  async function stopReminder() {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    setIsReminding(false);
+    Alert.alert("Stopped", "Reminders cancelled.");
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <View style={styles.container}>
+      <Text style={styles.emoji}>🥤</Text>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+      <Text style={styles.label}>Add a Custom Message</Text>
+      <TextInput
+        style={styles.input}
+        value={message}
+        onChangeText={(text) => setMessage(text)}
+      />
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <Text style={styles.label}>Set Interval (minutes)</Text>
+      <TextInput
+        style={styles.input}
+        value={intervalMinutes.toString()}
+        onChangeText={(text) => setIntervalMinutes(parseInt(text) || 1)}
+        keyboardType="numeric"
+      />
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+      <Text style={styles.status}>
+        Status: {isReminding ? "Active 🟢" : "Inactive 🔴"}
+      </Text>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+      <Button title="Start Reminders" onPress={scheduleReminder} color="#0EA5E9" />
+      <View style={{ height: 10 }} />
+      <Button title="Stop Reminders" onPress={stopReminder} color="#EF4444" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  container: { flex: 1,backgroundColor:"#c3dff1" , padding: 20, alignItems: 'center', justifyContent: 'center' },
+  emoji: { fontSize: 60, marginBottom: 20 },
+  label: { fontSize: 20, color: '#297266', fontWeight: 'bold', marginTop: 15 },
+  input: { borderWidth: 1,  backgroundColor: "#fff", borderColor: '#afe6f8', padding: 15, width: '90%', borderRadius: 5, marginTop: 5 },
+  status: { fontSize: 20, color: '#297266', marginVertical: 20, fontWeight: 'bold' }
 });
